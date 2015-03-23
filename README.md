@@ -23,7 +23,7 @@ This script is ideal for running on a Raspberry Pi.
 
 First get python3 and git.
 
-    sudo apt-get install python3 python3-virtualenv git
+    sudo apt-get install python python-virtualenv git
 
 The following commands will create a python virtualenv and install the
 script into it.

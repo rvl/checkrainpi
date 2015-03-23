@@ -1,7 +1,7 @@
 import os
 import os.path
 import logging
-import configparser
+from six.moves.configparser import ConfigParser
 import boto.sdb
 
 __all__ = ["setup_logging", "logger", "Config", "get_sdb_conn"]
@@ -17,7 +17,7 @@ def get_sdb_conn(conf):
 
 class Config(object):
     def __init__(self, config_file):
-        config = configparser.ConfigParser()
+        config = ConfigParser()
         config.read(config_file)
 
         self.serial = {
@@ -80,4 +80,3 @@ def setup_logging(storage_dir, verbose):
     logging.config.dictConfig(LOGGING)
 
     logger.info("Started")
-
