@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import os
 import os.path
 import argparse
@@ -31,14 +33,16 @@ def collect_data(conf):
     """
     logger.info("Opening %(port)s" % conf.serial)
     ser = serial.Serial(timeout=10, **conf.serial)
-    sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
+    sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser),
+                           encoding="utf-8", errors="ignore",
+                           newline=None, line_buffering=True)
 
-    sio.write(u"#3410#rm\n")
+    sio.write("#3410#rm\n")
     sio.flush()
 
     d = DataPackage([], [], datetime.now())
 
-    for line in map(str.strip, sio):
+    for line in map(unicode.strip, sio):
         logger.debug("got line: " + line)
         parts = line.split(";")
         if len(parts) == 1 and parts[0] == "+3410+":
