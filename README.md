@@ -128,7 +128,11 @@ Add the following to `/etc/rc.local` (before exit 0 line). Replace
    
     autossh -N -f -o "PubkeyAuthentication=yes" -o "PasswordAuthentication=no" -o "TCPKeepAlive=yes" -o "ServerAliveInterval=90" -i /home/pi/.ssh/id_rsa -R "*:6666:localhost:22" myuser@mygateway.host &
 
-Then fix the permissions and run it.
+Test the SSH connection and accept the host key:
+
+    sudo ssh myuser@mygateway.host
+
+Then run it the init script.
 
     chmod +x /etc/rc.local
     /etc/rc.local
@@ -143,6 +147,13 @@ then you need to login with two hops.
 
     ssh myuser@mygateway.host
     ssh -p 6666 -l pi localhost
+
+### Create your own gateway host
+
+If you don't have access to a gateway host, one can be created under
+the Amazon EC2 12 month free usage tier. You would then need to use an
+dynamic DNS client to maintain a constant hostname. Amazon have
+instructions in their EC2 documentation.
 
 ### USB Serial setup
 
@@ -179,3 +190,4 @@ Put the following lines down the bottom:
 
      0 16 * * * /home/pi/checkrainpi/venv/bin/checkrain --conf=/home/pi/checkrainpi/site.conf
      0 15 * * * cd /home/pi/checkrainpi && git pull -q
+     */5 * * * * /home/pi/checkrainpi/scripts/connect4g.sh
