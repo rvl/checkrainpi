@@ -1,0 +1,3 @@
+0   16 * * *  $HOME/checkrainpi/venv/bin/checkrain --conf=$HOME/checkrainpi/site.conf
+0   15 * * *  cd $HOME/checkrainpi && git pull -q
+*/5 *  * * *  $HOME/checkrainpi/scripts/connect4g.sh
