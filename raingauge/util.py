@@ -1,6 +1,7 @@
 import os
 import os.path
 import logging
+import logging.handlers
 from six.moves.configparser import ConfigParser
 import boto.sdb
 
@@ -38,45 +39,26 @@ class Config(object):
 
 def setup_logging(storage_dir, verbose):
     loglevel = 'DEBUG' if verbose >= 2 else 'INFO'
+    logger.setLevel(loglevel)
 
-    if verbose:
-        logging.basicConfig(format="%(message)s", level=loglevel)
+    fmt = logging.Formatter(fmt='%(asctime)s %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
+
+    ch = logging.StreamHandler()
+    ch.setLevel(loglevel)
+    ch.setFormatter(fmt)
+    logger.addHandler(ch)
 
     if not os.path.exists(storage_dir):
         logger.info("Making directory %s" % storage_dir)
         os.makedirs(storage_dir)
 
-    logfile = os.path.join(storage_dir, "checkrain.log")
+    fh = logging.FileHandler(os.path.join(storage_dir, "checkrain.log"))
+    fh.setLevel(loglevel)
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
 
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': True,
-        'formatters': {
-            'simple': {
-                'format': '%(asctime)s %(message)s',
-                'datefmt': '%Y-%m-%d %H:%M:%S'
-            },
-        },
-        'handlers': {
-            'console': {
-                'level': 'WARNING' if verbose == 0 else loglevel,
-                'class': 'logging.StreamHandler',
-                'formatter': 'simple'
-            },
-            'file': {
-                'level': loglevel,
-                'class': 'logging.FileHandler',
-                'formatter': 'simple',
-                'filename': logfile
-            }
-        },
-        'loggers': {
-            __name__: {
-                'handlers': ['console', 'file'],
-                'level': loglevel,
-            }
-        }
-    }
-    logging.config.dictConfig(LOGGING)
+    ch.setLevel(logging.WARNING if verbose == 0 else loglevel)
 
     logger.info("Started")
+    logger.debug("Verbosity = %d" % verbose)
