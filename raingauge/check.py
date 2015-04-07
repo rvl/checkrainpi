@@ -33,7 +33,7 @@ def collect_data(conf):
     ser = serial.Serial(timeout=10, **conf.serial)
     sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
 
-    sio.write("#3410#rm\n")
+    sio.write(u"#3410#rm\n")
     sio.flush()
 
     d = DataPackage([], [], datetime.now())
