@@ -27,7 +27,11 @@ class Config(object):
             "parity": config.get('device', 'parity'),
             "bytesize": config.getint('device', 'bytesize'),
             "stopbits": config.getint('device', 'stopbits'),
+            "timeout": config.getfloat('device', 'timeout'),
+            "interCharTimeout": config.getfloat('device', 'char_delay'),
         }
+
+        self.serial_char_delay = self.serial["interCharTimeout"]
 
         self.storage_dir = config.get("storage", "dir")
         self.sdb_domain = config.get("simpledb", "domain")
@@ -35,6 +39,8 @@ class Config(object):
         self.aws_access_key_id = config.get("aws", "access_key_id")
         self.aws_secret_access_key = config.get("aws", "secret_access_key")
         self.aws_region = config.get("aws", "region")
+
+        self.station_id = config.get("site", "station_id")
 
 
 def setup_logging(storage_dir, verbose):

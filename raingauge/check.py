@@ -6,8 +6,10 @@ import argparse
 import boto.sdb
 import serial
 import io
+import time
 from collections import namedtuple
 from datetime import datetime
+from six.moves import map
 
 from .util import *
 
@@ -23,7 +25,15 @@ def main():
     send_data(conf, package)
 
 
-DataPackage = namedtuple("DataPackage", ["status", "data", "timestamp"])
+DataPackage = namedtuple("DataPackage", ["status", "data", "timestamp", "station_id"])
+
+
+def write_cmd(ser, station_id, cmd, delay):
+    line = "#%s#%s\r\n" % (station_id, cmd)
+    logger.info("Sending %s" % line.strip())
+    for c in bytes(line):
+        ser.write(c)
+        time.sleep(delay)
 
 
 def collect_data(conf):
@@ -32,26 +42,33 @@ def collect_data(conf):
     data.
     """
     logger.info("Opening %(port)s" % conf.serial)
-    ser = serial.Serial(timeout=10, **conf.serial)
+    ser = serial.Serial(**conf.serial)
     sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser),
                            encoding="utf-8", errors="ignore",
                            newline=None, line_buffering=True)
 
-    sio.write("#3410#rm\n")
-    sio.flush()
+    write_cmd(ser, conf.station_id, "rm", conf.serial_char_delay)
 
-    d = DataPackage([], [], datetime.now())
+    end_marker = "+" + conf.station_id + "+"
 
+    d = DataPackage([], [], datetime.now(), conf.station_id)
+
+    logger.debug("Reading...")
+
+    count = 0
     for line in map(unicode.strip, sio):
+        count += 1
         logger.debug("got line: " + line)
         parts = line.split(";")
-        if len(parts) == 1 and parts[0] == "+3410+":
+        if len(parts) == 1 and parts[0] == end_marker:
             logger.debug("finished")
             break
         elif len(parts) <= 5:
             d.status.append(line)
         else:
             d.data.append(parts)
+
+    logger.info("Received %d lines" % count)
 
     return d
 
@@ -136,7 +153,12 @@ def make_status_attributes(package):
     make_name = get_make_name(package.timestamp)
     collected = package.timestamp.isoformat()
     for i, line in enumerate(package.status):
-        attrs = {"index": i, "line": line, "collected": collected}
+        attrs = {
+            "index": i,
+            "line": line,
+            "collected": collected,
+            "station_id": package.station_id,
+        }
         yield (make_name(i), attrs)
 
 
@@ -164,7 +186,8 @@ def make_data_attributes(package, last=None):
             attrs = dict(("col_%d" % (j+1), c) for (j, c) in enumerate(row))
             attrs.update({
                 "collected": collected,
-                "index": i
+                "index": i,
+                "station_id": package.station_id,
             })
             if dt:
                 attrs["datetime"] = dt.isoformat()
