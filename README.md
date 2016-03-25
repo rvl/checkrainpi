@@ -88,10 +88,27 @@ Install vim editor because nano sucks.
 
 ### Mobile Internet connection (Telstra)
 
-Telstra 4G dongle config is quite easy. First check for USB device
+Telstra 4G dongle config is quite easy. The attached dongle appears as
+a normal ethernet interface, using the ``cdc_ether`` driver.
+
+First check for USB device. The attached dongle will appear as one of
+the following two vendor strings.
 
     lsusb
-    Bus 001 Device 007:  ID 19d2:1405 ZTE WCDMA Technologies MSM
+    Bus 001 Device 007: ID 19d2:1405 ZTE WCDMA Technologies MSM
+    Bus 001 Device 005: ID 12d1:14db Huawei Technologies Co., Ltd.
+
+The ZTE is well supported by Raspbian and appears as the ``usb0``
+interface. The Huawei is supported by newer versions of Linux than
+Raspbian, so needs an updated config file. When it works, it comes up
+as ``eth1`` (``eth0`` is the Raspberry Pi's ethernet port).
+
+Get the updated file:
+
+    wget https://sources.debian.net/data/main/u/usb-modeswitch-data/20150115-1/40-usb_modeswitch.rules
+    sudo chown root:root 40-usb_modeswitch.rules
+    sudo mv 40-usb_modeswitch.rules /lib/udev/rules.d/40-usb_modeswitch.rules
+    sudo service udev reload
 
 Edit the Debian networking file.
 
@@ -99,12 +116,18 @@ Edit the Debian networking file.
     
 Add the following lines:
 
+    allow-hotplug usb0
     auto usb0
     iface usb0 inet dhcp
 
-Bring up connection
+    allow-hotplug eth1
+    auto eth1
+    iface eth1 inet dhcp
+
+Bring up connection (choose interface based on attached dongle).
 
     sudo ifup usb0
+    sudo ifup eth1
 
 ### SSH Reverse Proxy
 
@@ -180,7 +203,7 @@ Edit `site.conf` according to your settings.
 
 ### Automatic running with cron
 
-This will run the script every day at 4PM. It will also auto-update
+This will run the script every day at 7AM. It will also auto-update
 the checkrainpi script every week. Run the crontab editor for the pi
 user:
 
@@ -188,6 +211,7 @@ user:
 
 Put the following lines down the bottom:
 
-     0 16 * * * /home/pi/checkrainpi/venv/bin/checkrain --conf=/home/pi/checkrainpi/site.conf
-     0 15 * * * cd /home/pi/checkrainpi && git pull -q
+     0 7 * * * /home/pi/checkrainpi/venv/bin/checkrain --conf=/home/pi/checkrainpi/site.conf
+     0 6 * * * cd /home/pi/checkrainpi && git pull -q
      */5 * * * * /home/pi/checkrainpi/scripts/connect4g.sh
+     0 5 * * * /home/pi/checkrainpi/scripts/reboot-huawei.sh
