@@ -18,7 +18,7 @@ def get_sdb_conn(conf):
 
 class Config(object):
     def __init__(self, config_file):
-        config = ConfigParser()
+        config = ConfigParser(allow_no_value=True)
         config.read(config_file)
 
         self.serial = {
@@ -34,13 +34,26 @@ class Config(object):
         self.serial_char_delay = self.serial["interCharTimeout"]
 
         self.storage_dir = config.get("storage", "dir")
-        self.sdb_domain = config.get("simpledb", "domain")
 
-        self.aws_access_key_id = config.get("aws", "access_key_id")
-        self.aws_secret_access_key = config.get("aws", "secret_access_key")
-        self.aws_region = config.get("aws", "region")
+        self.sdb_enabled = config.has_section("simpledb")
+
+        if self.sdb_enabled:
+            self.sdb_domain = config.get("simpledb", "domain")
+
+        if config.has_section("aws"):
+            self.aws_access_key_id = config.get("aws", "access_key_id")
+            self.aws_secret_access_key = config.get("aws", "secret_access_key")
+            self.aws_region = config.get("aws", "region")
 
         self.station_id = config.get("site", "station_id")
+
+        self.mail_enabled = config.has_section("mail")
+        if self.mail_enabled:
+            self.mail_host = config.get("mail", "host") or "localhost"
+            self.mail_port = config.getint("mail", "port") if config.has_option("mail", "port") else 587
+            self.mail_username = config.get("mail", "username")
+            self.mail_password = config.get("mail", "password")
+            self.mail_to = config.get("mail", "to")
 
 
 def setup_logging(storage_dir, verbose):

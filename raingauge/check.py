@@ -3,12 +3,13 @@ from __future__ import unicode_literals
 import os
 import os.path
 import argparse
-import boto.sdb
 import serial
 import io
 import time
 from collections import namedtuple
 from datetime import datetime
+import ssl, smtplib
+import subprocess
 from six.moves import map
 
 from .util import *
@@ -21,11 +22,16 @@ def main():
     setup_logging(conf.storage_dir, args.verbose or 0)
 
     package = collect_data(conf)
-    store_data(conf, package)
-    send_data(conf, package)
+    files = store_data(conf, package)
 
+    if conf.sdb_enabled:
+        send_data(conf, package)
+
+    if conf.mail_enabled:
+        mail_data(conf, files)
 
 DataPackage = namedtuple("DataPackage", ["status", "data", "timestamp", "station_id"])
+FileOutput = namedtuple("FileOutput", ["status", "data"])
 
 
 def write_cmd(ser, station_id, cmd, delay):
@@ -91,6 +97,7 @@ def store_data(conf, package):
             for row in package.data:
                 f.write(";".join(row) + "\n")
 
+    return FileOutput(status_file, data_file)
 
 def output_dir(conf, date):
     return os.path.join(conf.storage_dir,
@@ -108,6 +115,7 @@ def setup_dirs(conf, package):
 
 
 def get_sdb_conn(conf):
+    import boto.sdb
     return boto.sdb.connect_to_region(conf.aws_region,
                                       aws_access_key_id=conf.aws_access_key_id,
                                       aws_secret_access_key=conf.aws_secret_access_key)
@@ -228,6 +236,74 @@ def send_data(conf, package):
     logger.info("Putting %d data items" % len(data_attrs))
     batch_put_attributes(data, data_attrs)
 
+def link_path(conf):
+    return os.path.join(conf.storage_dir, "%s.sent" % conf.station_id)
+
+def get_prev_link(conf):
+    prev_link = link_path(conf)
+    if os.path.exists(prev_link):
+        logger.info("Previously sent file was %s" % os.path.realpath(prev_link))
+    else:
+        logger.info("No previous mail was sent.")
+        prev_link = None
+    return prev_link
+
+def make_prev_link(conf, files):
+    prev_link = link_path(conf)
+    logger.info("Symlinking %s -> %s" % (files.data, prev_link))
+    if os.path.exists(prev_link):
+        os.remove(prev_link)
+    os.symlink(files.data, prev_link)
+
+def get_diff(filea, fileb):
+    with open(filea) as a:
+        existing = set(a)
+        with open(fileb) as b:
+            return "".join(line for line in b if line not in existing)
+
+def mail_data(conf, files):
+    prev_link = get_prev_link(conf)
+    diff = get_diff(prev_link or "/dev/null", files.data)
+    msg = "\n".join([
+        "Subject: Rain gauge reading for %s" % conf.station_id,
+        "From: %s" % conf.mail_username,
+        "To: %s" % (conf.mail_to or conf.mail_username),
+        "",
+        "Station ID: %s" % conf.station_id,
+        "",
+        "---",
+        "Status file:",
+        open(files.status).read(),
+        "---",
+        "",
+        "New data:",
+        "---",
+        diff,
+        "---",
+        "",
+        "Uptime:",
+        subprocess.check_output(["uptime"], universal_newlines=True),
+        "",
+        "-- ",
+        "checkrainpi",
+        "https://github.com/rvl/checkrainpi",
+    ])
+    send_mail(conf, msg)
+    make_prev_link(conf, files)
+
+def send_mail(conf, msg):
+    logger.info("Connecting to SMTP %s:%s" % (conf.mail_host, conf.mail_port))
+    smtp = smtplib.SMTP(conf.mail_host, port=conf.mail_port)
+    # context = ssl.create_default_context()
+    # smtp.starttls(context=context)
+    smtp.starttls()
+    if conf.mail_username:
+        smtp.login(conf.mail_username, conf.mail_password)
+
+    to = conf.mail_to or conf.mail_username
+    logger.info("Sending message to %s" % to)
+    smtp.sendmail(conf.mail_username, [to], msg)
+    logger.info("Sent")
 
 def get_args():
     parser = argparse.ArgumentParser(description='Check rain collector and send results.')
