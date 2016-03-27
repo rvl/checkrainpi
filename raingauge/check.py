@@ -273,7 +273,7 @@ def mail_data(conf, files):
         "",
         "---",
         "Status file:",
-        open(files.status).read(),
+        open(files.status).read().strip(),
         "---",
         "",
         "New data:",
